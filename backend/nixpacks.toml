@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = ['nodejs-18_x', 'yarn']
+
+[phases.install]
+cmds = [
+  'yarn install --frozen-lockfile',
+  'npx prisma generate'
+]
+
+[phases.build]
+cmds = [
+  'yarn build'
+]
+
+[start]
+cmd = 'node dist/main.js'

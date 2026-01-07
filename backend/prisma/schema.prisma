@@ -1,0 +1,1646 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model organization {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  plan        String   @default("free") // 'free' | 'starter' | 'growth' | 'enterprise'
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  
+  // Phase 2: GenX OS Feature Flags (Superadmin Control)
+  feature_discovery       Boolean @default(true)   // Lead Discovery Module
+  feature_enrichment      Boolean @default(true)   // Data Enrichment Module
+  feature_verification    Boolean @default(true)   // Verified Match Module
+  feature_crm             Boolean @default(true)   // CRM Pipeline Module
+  feature_outreach        Boolean @default(true)   // Outreach & Sequences Module
+  feature_inbox           Boolean @default(true)   // Unified Inbox Module
+  feature_analytics       Boolean @default(true)   // Analytics Dashboard Module
+  feature_genie_ai        Boolean @default(true)   // Genie AI Assistant Module
+  feature_x_suite         Boolean @default(false)  // X Suite Integration (Premium)
+  feature_website_intel   Boolean @default(true)   // Website Intelligence Module
+  
+  // Phase 3: AutoGenX AI-Powered Workflow Generation
+  autogenx_enabled        Boolean @default(true)   // AutoGenX AI Workflow Builder
+  
+  // Phase 5: CalGenX Appointments & Scheduling
+  calgenx_enabled         Boolean @default(false)  // CalGenX Appointment Scheduling
+  
+  // Relations
+  api_keys    api_key[]
+  users       user[]
+  clients     client[]
+  campaigns   campaign[]
+  
+  // Phase 16: Analytics relations
+  analytics_metrics                analytics_metric[]
+  analytics_attributions          analytics_attribution[]
+  analytics_funnel_stages         analytics_funnel_stage[]
+  analytics_template_performances analytics_template_performance[]
+  
+  // Phase 16.5: Genie AI relations
+  genie_conversations             genie_conversation[]
+  genie_qualifications            genie_qualification[]
+  genie_demo_requests             genie_demo_request[]
+  
+  // AutoGenX Phase 1: Event spine
+  automation_events               automation_event[]
+  
+  // AutoGenX Phase 2: Workflow rules
+  automation_workflows            automation_workflow[]
+  automation_enrollments          automation_enrollment[]
+  
+  // AutoGenX Phase 4.5: Messaging, compliance & inbound
+  automation_messages             automation_message[]
+  messaging_settings_rel          messaging_settings?
+  messaging_daily_usage_rel       messaging_daily_usage[]
+  
+  // CalGenX Phase 5: Appointments & Scheduling
+  appointment_types               appointment_type[]
+  availability_rules              availability_rule[]
+  appointments                    appointment[]
+  booking_links                   booking_link[]
+  calgenx_ical_feeds              calgenx_ical_feed[]
+  
+  // CalGenX Phase 5.5A: Google Calendar Integration
+  google_calendar_connection      google_calendar_connection?
+  
+  @@map("organizations")
+}
+
+model user {
+  id              String        @id @default(uuid())
+  organization_id String
+  organization    organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  
+  // Authentication
+  email           String        @unique
+  password_hash   String        // bcrypt hashed password for human auth
+  role            String        @default("user") // 'user' | 'workspace_admin' | 'superadmin'
+  is_active       Boolean       @default(true)
+  
+  // Profile (business info collected at signup)
+  full_name       String        @default("")
+  company_name    String        @default("") // Can be same as organization name or different
+  title           String?       // Job title (optional)
+  phone           String?       // Business phone (optional)
+  
+  // Organization details (collected at signup)
+  industry        String?       // Industry/vertical
+  website         String?       // Company website
+  city            String?       // City
+  state           String?       // State/province
+  country         String        @default("US") // Country code
+  
+  // Email verification
+  email_verified  Boolean       @default(false)
+  email_verify_token String?    @unique // Token for email verification
+  email_verify_expires DateTime? // Token expiration
+  
+  // Timestamps
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  last_login_at   DateTime?
+  
+  // Relations
+  sessions           session[]
+  client_members     client_member[]
+  owned_leads        lead[]        @relation("LeadOwner")
+  activities_created activity[]
+  tasks_assigned     task[]
+  outreach_sequences outreach_sequence[]
+  inbox_items        inbox_item[]
+  
+  @@index([organization_id])
+  @@index([email])
+  @@index([is_active])
+  @@index([email_verified])
+  @@map("users")
+}
+
+model session {
+  id              String   @id @default(uuid())
+  user_id         String
+  user            user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  token_hash      String   @unique // bcrypt hashed session token
+  expires_at      DateTime
+  created_at      DateTime @default(now())
+  last_used_at    DateTime @default(now())
+  ip_address      String?
+  user_agent      String?
+  
+  @@index([user_id])
+  @@index([expires_at])
+  @@map("sessions")
+}
+
+model client {
+  id              String        @id @default(uuid())
+  organization_id String
+  organization    organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  name            String
+  industry        String?
+  website         String?
+  notes           String?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  
+  // Relations
+  campaigns          campaign[]
+  pipelines          client_pipeline[]
+  members            client_member[]
+  activities         activity[]
+  tasks              task[]
+  outreach_sequences outreach_sequence[]
+  inbox_items        inbox_item[]
+  
+  // Phase 16: Analytics relations
+  analytics_metrics                analytics_metric[]
+  analytics_attributions          analytics_attribution[]
+  analytics_funnel_stages         analytics_funnel_stage[]
+  analytics_template_performances analytics_template_performance[]
+  
+  @@index([organization_id])
+  @@index([created_at])
+  @@map("clients")
+}
+
+model api_key {
+  id              String        @id @default(uuid())
+  key_hash        String        @unique @default("") // bcrypt hashed key
+  key_prefix      String        @default("") // First 12 chars for display (lgx_abc...)
+  name            String        // friendly name for the key
+  organization_id String
+  organization    organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  is_active       Boolean       @default(true)
+  last_used_at    DateTime?
+  expires_at      DateTime?
+  
+  // Rate limiting
+  rate_limit_rpm  Int           @default(100)   // Requests per minute
+  rate_limit_daily_jobs Int     @default(1000)  // Daily enrichment job limit
+  
+  // Role-based access (optional RBAC)
+  role            String        @default("user") // 'admin' | 'user'
+  
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+  
+  @@index([organization_id])
+  @@index([is_active])
+  @@index([key_prefix])
+  @@map("api_keys")
+}
+
+model lead {
+  id                String          @id @default(uuid())
+  name              String
+  address           String?
+  phone             String?
+  website           String?
+  contact_page_url  String?
+  rating            Float?
+  review_count      Int?
+  source            String          // 'google' or 'yelp'
+  source_url        String?
+  place_id          String?         @unique
+  yelp_id           String?         @unique
+  categories        String[]        @default([])
+  latitude          Float?
+  longitude         Float?
+  is_lead           Boolean         @default(false)
+  
+  // Lead quality and status
+  score             Int             @default(0) // 0-100 quality score
+  status            String          @default("new") // 'new' | 'contacted' | 'qualified' | 'converted' | 'disqualified'
+  tags              String[]        @default([])
+  intent_evidence   Json?           // Signals of buying intent
+  
+  // CRM fields (multi-client workspace support)
+  crm_stage_id      String?         // FK to ClientPipelineStage
+  crm_stage         client_pipeline_stage? @relation(fields: [crm_stage_id], references: [id], onDelete: SetNull)
+  owner_user_id     String?         // FK to User (lead owner)
+  owner             user?           @relation("LeadOwner", fields: [owner_user_id], references: [id], onDelete: SetNull)
+  last_contacted_at DateTime?       // Last time this lead was contacted
+  next_task_due_at  DateTime?       // Next scheduled task for this lead
+  
+  // Phase 15: SLA Tracking
+  last_touch_at     DateTime?       // Last meaningful interaction (activity, message, note)
+  overdue_threshold_hours Int       @default(48) // Hours before lead is considered overdue
+  is_overdue        Boolean         @default(false) // Computed: last_touch_at + threshold < now
+  overdue_since     DateTime?       // When lead became overdue
+  
+  // Phase 2.5: Inbound message tracking (for no-reply detection)
+  last_inbound_message_at   DateTime?  // When lead last sent us a message
+  last_inbound_message_text String?    // Content of last inbound message (for condition_contains_text)
+  last_outbound_message_at  DateTime?  // When we last sent a message (for no-reply checks)
+  
+  // Phase 4.5: Messaging compliance (opt-out tracking)
+  sms_opt_out               Boolean    @default(false) // Lead opted out of SMS
+  email_opt_out             Boolean    @default(false) // Lead opted out of email
+  
+  // Timestamps
+  discovered_at     DateTime        @default(now())
+  last_seen_at      DateTime        @default(now())
+  
+  // Relations
+  enriched_lead        enriched_lead?
+  campaign_leads       campaign_lead[]
+  activities           activity[]
+  tasks                task[]
+  outreach_enrollments outreach_enrollment[]
+  message_logs         message_log[]
+  inbox_items          inbox_item[]
+  
+  // Phase 16: Analytics relations
+  analytics_attributions  analytics_attribution[]
+  analytics_funnel_stages analytics_funnel_stage[]
+  
+  // Phase 16.5: Genie AI relations
+  genie_conversations     genie_conversation[]
+  genie_qualifications    genie_qualification[]
+  genie_demo_requests     genie_demo_request[]
+  
+  // AutoGenX Phase 1: Event spine
+  automation_events       automation_event[]
+  
+  // AutoGenX Phase 2: Workflow enrollments
+  automation_enrollments  automation_enrollment[]
+  
+  // AutoGenX Phase 4.5: Messaging
+  automation_messages     automation_message[]
+  
+  // CalGenX Phase 5: Appointments
+  appointments            appointment[]
+  
+  // Composite index for fallback deduplication
+  @@index([name, address])
+  @@index([source])
+  @@index([is_lead])
+  @@index([score])
+  @@index([status])
+  @@index([discovered_at])
+  @@index([crm_stage_id])
+  @@index([owner_user_id])
+  @@index([last_contacted_at])
+  @@index([next_task_due_at])
+  @@index([last_touch_at])
+  @@index([is_overdue])
+  @@map("leads")
+}
+
+model campaign {
+  id                    String          @id @default(uuid())
+  organization_id       String
+  organization          organization    @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  client_id             String?
+  client                client?         @relation(fields: [client_id], references: [id], onDelete: SetNull)
+  
+  name                  String
+  status                String          @default("draft") // 'draft' | 'active' | 'paused' | 'archived'
+  
+  // Target vertical and geography
+  vertical              String          // e.g., "Recording Studio"
+  geo_country           String?
+  geo_state             String?
+  geo_city              String?
+  geo_radius_miles      Float?
+  geo_lat               Float?
+  geo_lng               Float?
+  
+  // Source toggles
+  sources_google_places Boolean         @default(true)
+  sources_reddit_intent Boolean         @default(false)
+  
+  // Configuration objects (stored as JSON)
+  discovery_config      Json            @default("{}")  // {keywords[], negative_keywords[], categories[], min_rating?, min_reviews?}
+  intent_config         Json            @default("{}")  // {intent_phrases[], urgency_keywords[], timeframe_days}
+  enrichment_config     Json            @default("{}")  // {max_pages, max_depth, early_stop_rules, respect_robots}
+  scoring_weights       Json            @default("{}")  // {phone_weight, email_weight, form_weight, intent_weight, freshness_weight}
+  
+  // Client Brief (Phase 11.5) - Natural language targeting
+  client_brief                String?   // Natural language description of what client wants
+  targeting_profile           Json?     // Structured targeting rules generated from brief
+  targeting_profile_updated_at DateTime? // Last time targeting profile was generated
+  
+  // Website Intelligence (Phase 11.7) - Automated website analysis
+  website_url                 String?   // Client's website URL for automated analysis
+  website_analysis            Json?     // Structured intelligence extracted from website
+  website_analysis_updated_at DateTime? // Last time website was analyzed
+  
+  // Refresh schedule
+  refresh_mode          String          @default("manual") // 'manual' | 'daily' | 'weekly'
+  refresh_day_of_week   Int?            // 0-6 (Sunday=0)
+  
+  // Timestamps
+  created_at            DateTime        @default(now())
+  updated_at            DateTime        @updatedAt
+  last_run_at           DateTime?
+  
+  // Relations
+  runs                  campaign_run[]
+  campaign_leads        campaign_lead[]
+  
+  // Phase 16: Analytics relations
+  analytics_metrics        analytics_metric[]
+  analytics_attributions  analytics_attribution[]
+  analytics_funnel_stages analytics_funnel_stage[]
+  
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([last_run_at])
+  @@map("campaigns")
+}
+
+model campaign_run {
+  id              String    @id @default(uuid())
+  campaign_id     String
+  campaign        campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  
+  run_type        String    // 'manual' | 'scheduled'
+  status          String    // 'running' | 'success' | 'partial' | 'failed'
+  
+  // Execution timing
+  started_at      DateTime  @default(now())
+  finished_at     DateTime?
+  
+  // Statistics (stored as JSON)
+  stats           Json      @default("{}")  // {intent_signals_found, leads_discovered, leads_upserted, leads_enriched, lead_ready_count, bot_block_rate, avg_enrich_ms}
+  
+  // Logs and errors
+  logs            String[]  @default([])
+  error           String?
+  
+  @@index([campaign_id])
+  @@index([status])
+  @@index([started_at])
+  @@map("campaign_runs")
+}
+
+model campaign_lead {
+  id                  String    @id @default(uuid())
+  campaign_id         String
+  campaign            campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  lead_id             String
+  lead                lead      @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  
+  // Campaign-specific data
+  campaign_score      Int       @default(0)  // 0-100, campaign-specific scoring
+  stage               String    @default("new") // 'new' | 'reviewed' | 'exported' | 'contacted' | 'won' | 'lost' | 'do_not_contact'
+  tags                String[]  @default([])
+  notes               String?
+  intent_signal_id    String?   // Optional link to specific intent signal
+  
+  // Timestamps
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  
+  @@unique([campaign_id, lead_id])
+  @@index([campaign_id])
+  @@index([lead_id])
+  @@index([stage])
+  @@index([campaign_score])
+  @@index([created_at])
+  @@map("campaign_leads")
+}
+
+model enriched_lead {
+  id                  String   @id @default(uuid())
+  lead_id             String   @unique
+  lead                lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  
+  // Contact information found
+  contact_page_urls   String[] @default([])
+  contact_form_url    String?
+  emails_found        Json[]   @default([]) // Array of EmailEvidence objects
+  phones_found        Json[]   @default([]) // Array of PhoneEvidence objects
+  social_links        Json     @default("{}")  // SocialLinks object
+  address_found       Json?    // AddressEvidence object
+  
+  // Enrichment status and logs
+  enrichment_status   String   // 'success' | 'partial' | 'failed'
+  enrichment_log      String[] @default([])
+  
+  // Crawl metadata
+  pages_crawled       Int      @default(0)
+  crawl_depth         Int      @default(0)
+  crawl_duration_ms   Int      @default(0)
+  bot_detected        Boolean  @default(false)
+  fallback_used       Boolean  @default(false)
+  
+  // Phase 13: Verified Match Scoring & Evidence-Based Trust
+  feature_matches     Json[]   @default([]) // Array of FeatureMatch objects: {feature, match_type, evidence, confidence}
+  verified_score      Float    @default(0)  // Score from verified features (0-100)
+  preference_score    Float    @default(0)  // Score from preference features (0-100)
+  final_score         Float    @default(0)  // Weighted final score
+  scoring_breakdown   Json     @default("{}") // {verified, preference, intent, freshness}
+  
+  // Timestamps
+  enriched_at         DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  @@index([lead_id])
+  @@index([enrichment_status])
+  @@index([enriched_at])
+  @@map("enriched_leads")
+}
+
+model blocklist {
+  id              String   @id @default(uuid())
+  organization_id String
+  domain          String
+  reason          String?
+  created_at      DateTime @default(now())
+  
+  @@unique([organization_id, domain])
+  @@index([organization_id])
+  @@index([domain])
+  @@map("blocklists")
+}
+
+model webhook_subscription {
+  id              String   @id @default(uuid())
+  organization_id String
+  url             String
+  events          String[] @default([]) // 'lead.discovered' | 'lead.enriched' | 'lead.updated'
+  secret          String?  // for signing payloads
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  last_triggered  DateTime?
+  failure_count   Int      @default(0)
+  
+  @@index([organization_id])
+  @@index([is_active])
+  @@map("webhook_subscriptions")
+}
+
+model audit_log {
+  id              String   @id @default(uuid())
+  organization_id String
+  api_key_id      String
+  action          String   // 'export.json' | 'export.csv' | 'discover' | 'enrich' | etc.
+  resource_type   String   // 'lead' | 'api_key' | 'blocklist' | etc.
+  resource_id     String?  // ID of affected resource
+  metadata        Json?    // Additional context (filters, counts, etc.)
+  ip_address      String?
+  user_agent      String?
+  status          String   // 'success' | 'failed'
+  error_message   String?
+  created_at      DateTime @default(now())
+  
+  @@index([organization_id])
+  @@index([api_key_id])
+  @@index([action])
+  @@index([created_at])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// CRM MODELS - Multi-Client Workspace Support
+// ============================================================================
+
+model client_pipeline {
+  id              String                    @id @default(uuid())
+  client_id       String
+  client          client                    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  name            String                    // e.g., "Sales Pipeline", "Recruitment Pipeline"
+  description     String?
+  is_default      Boolean                   @default(false) // Default pipeline for new leads
+  position        Int                       @default(0)     // Display order
+  created_at      DateTime                  @default(now())
+  updated_at      DateTime                  @updatedAt
+  
+  // Relations
+  stages          client_pipeline_stage[]
+  
+  @@index([client_id])
+  @@index([is_default])
+  @@index([position])
+  @@map("client_pipelines")
+}
+
+model client_pipeline_stage {
+  id              String            @id @default(uuid())
+  pipeline_id     String
+  pipeline        client_pipeline   @relation(fields: [pipeline_id], references: [id], onDelete: Cascade)
+  name            String            // e.g., "New Lead", "Contacted", "Qualified", "Won", "Lost"
+  position        Int               @default(0) // Display order in pipeline
+  color           String            @default("#6E4AFF") // Hex color for UI
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+  
+  // Relations
+  leads           lead[]
+  
+  @@index([pipeline_id])
+  @@index([position])
+  @@map("client_pipeline_stages")
+}
+
+model client_member {
+  id              String    @id @default(uuid())
+  client_id       String
+  client          client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  user_id         String
+  user            user      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role            String    @default("member") // 'owner' | 'admin' | 'member' | 'viewer'
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  
+  @@unique([client_id, user_id])
+  @@index([client_id])
+  @@index([user_id])
+  @@index([role])
+  @@map("client_members")
+}
+
+model activity {
+  id                  String    @id @default(uuid())
+  client_id           String
+  client              client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  lead_id             String?
+  lead                lead?     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  type                String    // 'note' | 'call' | 'email' | 'meeting' | 'task_completed' | 'stage_changed' | 'owner_changed'
+  content             String    // Activity description/notes
+  meta                Json      @default("{}") // Additional metadata (e.g., call duration, email subject, etc.)
+  created_by_user_id  String
+  created_by          user      @relation(fields: [created_by_user_id], references: [id], onDelete: Cascade)
+  created_at          DateTime  @default(now())
+  
+  // Relations
+  inbox_items         inbox_item[]
+  
+  @@index([client_id])
+  @@index([lead_id])
+  @@index([type])
+  @@index([created_by_user_id])
+  @@index([created_at])
+  @@map("activities")
+}
+
+model task {
+  id                  String    @id @default(uuid())
+  client_id           String
+  client              client    @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  lead_id             String?
+  lead                lead?     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  assigned_to_user_id String
+  assigned_to         user      @relation(fields: [assigned_to_user_id], references: [id], onDelete: Cascade)
+  due_at              DateTime?
+  type                String    @default("general") // 'call' | 'email' | 'meeting' | 'follow_up' | 'general'
+  status              String    @default("pending") // 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  priority            String    @default("medium") // 'low' | 'medium' | 'high' | 'urgent'
+  title               String
+  description         String?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  completed_at        DateTime?
+  
+  // Phase 15: Workflow Engine
+  snoozed_until       DateTime?  // Task snoozed until this time
+  auto_created        Boolean    @default(false) // True if created by automation
+  auto_rule           String?    // Rule that created it: "48h_followup", "reply_followup", "overdue_check"
+  related_task_id     String?    // Link to task that triggered this one
+  related_task        task?      @relation("RelatedTasks", fields: [related_task_id], references: [id], onDelete: SetNull)
+  triggered_tasks     task[]     @relation("RelatedTasks")
+  inbox_items         inbox_item[]
+  
+  @@index([client_id])
+  @@index([lead_id])
+  @@index([assigned_to_user_id])
+  @@index([due_at])
+  @@index([type])
+  @@index([status])
+  @@index([priority])
+  @@index([created_at])
+  @@index([snoozed_until])
+  @@index([auto_created])
+  @@map("tasks")
+}
+
+// ============================================================================
+// PHASE 15: INBOX, TASKS & DAILY WORKFLOW ENGINE
+// ============================================================================
+
+model inbox_item {
+  id          String   @id @default(uuid())
+  client_id   String
+  client      client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  lead_id     String?
+  lead        lead?    @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  user_id     String?  // User who performed the action (for notes, calls, etc.)
+  user        user?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  
+  type        String   // 'reply' | 'note' | 'system_event' | 'task_completed' | 'stage_change' | 'email_sent'
+  title       String   // Summary of the event
+  body        String?  // Full content (email body, note text, etc.)
+  
+  // Metadata
+  metadata    Json?    // Additional context (e.g., email headers, system event details)
+  read        Boolean  @default(false) // Has user seen this item?
+  starred     Boolean  @default(false) // User marked as important
+  
+  // Relations to source entities
+  activity_id String?  // Link to activity if applicable
+  activity    activity? @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  task_id     String?  // Link to task if applicable
+  task        task?    @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  message_id  String?  // Link to message_log if applicable
+  message     message_log? @relation(fields: [message_id], references: [id], onDelete: Cascade)
+  
+  created_at  DateTime @default(now())
+  
+  @@index([client_id, created_at])
+  @@index([lead_id])
+  @@index([type])
+  @@index([read])
+  @@index([starred])
+  @@map("inbox_items")
+}
+
+// ============================================================================
+// PHASE 14: AUTOGENX OUTREACH INTEGRATION (Email-First)
+// ============================================================================
+
+model outreach_sequence {
+  id                String   @id @default(uuid())
+  client_id         String
+  client            client   @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  status            String   @default("draft") // draft, active, paused, archived
+  
+  // Per-client sending settings
+  max_daily_emails  Int?
+  sending_hours     Json?    // {start: 9, end: 17, timezone: "America/New_York"}
+  
+  created_by_user_id String
+  created_by        user     @relation(fields: [created_by_user_id], references: [id])
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  steps             outreach_step[]
+  enrollments       outreach_enrollment[]
+  message_logs      message_log[]
+
+  @@index([client_id])
+  @@index([status])
+  @@index([created_by_user_id])
+  @@map("outreach_sequences")
+}
+
+model outreach_step {
+  id          String   @id @default(uuid())
+  sequence_id String
+  sequence    outreach_sequence @relation(fields: [sequence_id], references: [id], onDelete: Cascade)
+  step_order  Int      // 1, 2, 3...
+  type        String   @default("email") // email only for Phase 14
+  delay_days  Int      @default(0) // Days after previous step (0 for first step)
+  
+  // Email template
+  subject     String
+  body        String   @db.Text
+  
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  message_logs message_log[]
+
+  @@unique([sequence_id, step_order])
+  @@index([sequence_id])
+  @@map("outreach_steps")
+}
+
+model outreach_enrollment {
+  id                String    @id @default(uuid())
+  lead_id           String
+  lead              lead      @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  sequence_id       String
+  sequence          outreach_sequence @relation(fields: [sequence_id], references: [id], onDelete: Cascade)
+  status            String    @default("active") // active, paused, completed, unsubscribed, failed
+  current_step      Int       @default(0) // Current step order (0 = not started)
+  
+  enrolled_at       DateTime  @default(now())
+  paused_at         DateTime?
+  completed_at      DateTime?
+  unsubscribed_at   DateTime?
+  
+  last_message_at   DateTime?
+  next_scheduled_at DateTime?
+  
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  message_logs      message_log[]
+
+  @@unique([lead_id, sequence_id])
+  @@index([lead_id])
+  @@index([sequence_id])
+  @@index([status])
+  @@index([next_scheduled_at])
+  @@map("outreach_enrollments")
+}
+
+model message_log {
+  id              String    @id @default(uuid())
+  lead_id         String
+  lead            lead      @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  sequence_id     String
+  sequence        outreach_sequence @relation(fields: [sequence_id], references: [id], onDelete: Cascade)
+  step_id         String
+  step            outreach_step @relation(fields: [step_id], references: [id], onDelete: Cascade)
+  enrollment_id   String
+  enrollment      outreach_enrollment @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  
+  // Message details
+  type            String    @default("email") // email only for Phase 14
+  provider        String?   // "autogenx" or specific email provider
+  provider_id     String?   // External provider message ID
+  
+  // Status tracking
+  status          String    @default("pending") // pending, sent, delivered, opened, replied, failed, bounced
+  
+  // Message content
+  subject         String?
+  body            String?   @db.Text
+  recipient_email String?
+  
+  // Timestamps
+  scheduled_at    DateTime?
+  sent_at         DateTime?
+  delivered_at    DateTime?
+  opened_at       DateTime?
+  replied_at      DateTime?
+  failed_at       DateTime?
+  
+  // Error tracking
+  error_code      String?
+  error_message   String?   @db.Text
+  
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  
+  // Relations
+  inbox_items     inbox_item[]
+
+  @@index([lead_id])
+  @@index([sequence_id])
+  @@index([enrollment_id])
+  @@index([status])
+  @@index([sent_at])
+  @@index([provider_id])
+  @@map("message_logs")
+}
+
+// ==================== X-SUITE INTEGRATION LAYER ====================
+
+// Product Registry - tracks all X-Suite products (AutoGenX, FunnelGenX, etc.)
+model x_suite_product {
+  id              String   @id @default(uuid())
+  name            String   // "AutoGenX" | "FunnelGenX" | "LeadGenX"
+  slug            String   @unique // "autogenx" | "funnelgenx" | "leadgenx"
+  api_base_url    String   // "https://autogenx.app/api"
+  webhook_secret  String   // HMAC secret for event verification
+  is_active       Boolean  @default(true)
+  capabilities    String[] @default([]) // ["email_automation", "linkedin_outreach"]
+  metadata        Json?    // Additional product metadata
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  @@index([slug])
+  @@index([is_active])
+  @@map("x_suite_products")
+}
+
+// Webhook Registry - tracks webhooks between products
+model x_suite_webhook {
+  id              String   @id @default(uuid())
+  organization_id String
+  
+  // Product Context
+  source_product  String   // "leadgenx" | "autogenx" | "funnelgenx"
+  target_product  String   // Product receiving the webhooks
+  
+  // Webhook Configuration
+  url             String   // "https://autogenx.app/api/webhooks/leadgenx"
+  events          String[] @default([]) // ["lead.created", "lead.enriched", "client.created"]
+  secret          String   // HMAC secret for signature verification
+  
+  // Status
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  // Health Monitoring
+  last_triggered_at DateTime?
+  last_success_at   DateTime?
+  failure_count     Int      @default(0)
+  last_error        String?
+  
+  @@index([organization_id])
+  @@index([source_product])
+  @@index([target_product])
+  @@index([is_active])
+  @@map("x_suite_webhooks")
+}
+
+// Event Log - cross-product audit trail
+model x_suite_event_log {
+  id              String   @id @default(uuid())
+  
+  // Event Metadata
+  event_id        String   @unique // From XSuiteEvent.event_id
+  event_name      String
+  event_version   String   @default("1.0")
+  
+  // Product Context
+  source_product  String
+  target_product  String?
+  
+  // Organization Context
+  organization_id String
+  client_id       String?
+  
+  // Event Data
+  payload         Json
+  signature       String
+  
+  // Processing Status
+  status          String   // "pending" | "delivered" | "failed" | "retrying"
+  delivery_attempts Int    @default(0)
+  last_delivery_attempt DateTime?
+  error_message   String?
+  
+  // Timestamps
+  created_at      DateTime @default(now())
+  processed_at    DateTime?
+  
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([event_name])
+  @@index([source_product])
+  @@index([target_product])
+  @@index([status])
+  @@index([created_at])
+  @@map("x_suite_event_logs")
+}
+
+// ===========================================
+// PHASE 16: ANALYTICS & ROI DASHBOARD
+// ===========================================
+
+// Time-series metrics with daily/weekly/monthly rollups
+model analytics_metric {
+  id              String   @id @default(uuid())
+  organization_id String
+  organization    organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  client_id       String?
+  client          client?  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  
+  // Metric identity
+  metric_name     String   // "leads_discovered", "leads_verified", "replies_received", "meetings_booked", etc.
+  metric_value    Float    // Numeric value
+  
+  // Time dimensions
+  date            DateTime // Date for this metric (truncated to day/week/month)
+  granularity     String   // "daily" | "weekly" | "monthly"
+  
+  // Segmentation dimensions (optional filters)
+  campaign_id     String?
+  campaign        campaign? @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  source          String?  // "google" | "yelp" | etc.
+  status          String?  // Lead status filter
+  
+  // Metadata
+  metadata        Json?    // Additional context
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([metric_name])
+  @@index([date])
+  @@index([granularity])
+  @@index([campaign_id])
+  @@index([source])
+  @@unique([organization_id, client_id, metric_name, date, granularity, campaign_id, source])
+  @@map("analytics_metrics")
+}
+
+// Attribution tracking: source → campaign → template → outcome
+model analytics_attribution {
+  id              String   @id @default(uuid())
+  organization_id String
+  organization    organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  client_id       String?
+  client          client?  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  
+  // Lead reference
+  lead_id         String
+  lead            lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  
+  // Attribution dimensions
+  discovery_source String?  // "google_maps" | "yelp" | "apollo" | "linkedin"
+  campaign_id     String?
+  campaign        campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+  template_id     String?  // Reference to outreach template used
+  template_name   String?
+  
+  // Outcome tracking
+  was_contacted   Boolean  @default(false)
+  first_contact_at DateTime?
+  
+  replied         Boolean  @default(false)
+  first_reply_at  DateTime?
+  reply_time_hours Float?  // Hours between first_contact and first_reply
+  
+  meeting_booked  Boolean  @default(false)
+  meeting_booked_at DateTime?
+  meeting_time_hours Float? // Hours between first_contact and meeting_booked
+  
+  converted       Boolean  @default(false)
+  converted_at    DateTime?
+  conversion_value Float?  // Pipeline/deal value
+  
+  // Timestamps
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([lead_id])
+  @@index([campaign_id])
+  @@index([discovery_source])
+  @@index([template_name])
+  @@index([was_contacted])
+  @@index([replied])
+  @@index([meeting_booked])
+  @@index([converted])
+  @@map("analytics_attributions")
+}
+
+// Conversion funnel stage progression
+model analytics_funnel_stage {
+  id              String   @id @default(uuid())
+  organization_id String
+  organization    organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  client_id       String?
+  client          client?  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  
+  // Stage definition
+  stage_name      String   // "discovered" | "verified" | "contacted" | "replied" | "meeting_booked" | "converted"
+  stage_order     Int      // 1, 2, 3, etc. for funnel visualization
+  
+  // Lead reference
+  lead_id         String
+  lead            lead     @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  
+  // Timing
+  entered_at      DateTime @default(now())
+  exited_at       DateTime?
+  time_in_stage_hours Float?  // Hours spent in this stage
+  
+  // Context
+  campaign_id     String?
+  campaign        campaign? @relation(fields: [campaign_id], references: [id], onDelete: SetNull)
+  
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([stage_name])
+  @@index([stage_order])
+  @@index([lead_id])
+  @@index([campaign_id])
+  @@index([entered_at])
+  @@map("analytics_funnel_stages")
+}
+
+// Template performance tracking
+model analytics_template_performance {
+  id              String   @id @default(uuid())
+  organization_id String
+  organization    organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  client_id       String?
+  client          client?  @relation(fields: [client_id], references: [id], onDelete: Cascade)
+  
+  // Template identity
+  template_id     String?  // Reference to outreach template
+  template_name   String
+  template_type   String   // "email" | "sms" | "linkedin" | "call_script"
+  
+  // Aggregated metrics
+  sends_count     Int      @default(0)
+  opens_count     Int      @default(0)
+  clicks_count    Int      @default(0)
+  replies_count   Int      @default(0)
+  bounces_count   Int      @default(0)
+  
+  // Calculated rates
+  open_rate       Float?   // opens / sends
+  click_rate      Float?   // clicks / opens
+  reply_rate      Float?   // replies / sends
+  bounce_rate     Float?   // bounces / sends
+  
+  // Time period
+  period_start    DateTime
+  period_end      DateTime
+  
+  // Metadata
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  @@index([organization_id])
+  @@index([client_id])
+  @@index([template_name])
+  @@index([template_type])
+  @@index([period_start])
+  @@index([period_end])
+  @@unique([organization_id, client_id, template_name, period_start, period_end])
+  @@map("analytics_template_performance")
+}
+
+// =====================================================
+// PHASE 16.5: GENIE AI CONVERSATIONAL INTELLIGENCE
+// =====================================================
+
+enum ConversationStatus {
+  active
+  qualified
+  scheduled
+  converted
+  abandoned
+}
+
+enum LeadTier {
+  solo_exploratory
+  enterprise_agency
+  undetermined
+}
+
+enum RecommendedAction {
+  free_trial
+  live_demo
+  undecided
+}
+
+model genie_conversation {
+  id                     String              @id @default(uuid())
+  organization_id        String
+  organization           organization        @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  
+  // Visitor identification
+  visitor_email          String?
+  visitor_name           String?
+  visitor_company        String?
+  visitor_role           String?
+  
+  // Lead association (if identified)
+  lead_id                String?
+  lead                   lead?               @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  
+  // Conversation state
+  status                 ConversationStatus  @default(active)
+  qualification_score    Int?                @default(0)
+  lead_tier              LeadTier?           @default(undetermined)
+  recommended_action     RecommendedAction?  @default(undecided)
+  
+  // Context and metadata
+  context_data           Json                @default("{}")
+  session_metadata       Json                @default("{}")
+  
+  // Timestamps
+  started_at             DateTime            @default(now())
+  ended_at               DateTime?
+  last_message_at        DateTime            @default(now())
+  created_at             DateTime            @default(now())
+  updated_at             DateTime            @updatedAt
+  
+  // Relations
+  messages               genie_message[]
+  qualifications         genie_qualification[]
+  demo_requests          genie_demo_request[]
+  
+  @@index([organization_id])
+  @@index([visitor_email])
+  @@index([status])
+  @@index([lead_tier])
+  @@index([started_at])
+  @@map("genie_conversation")
+}
+
+model genie_message {
+  id                String             @id @default(uuid())
+  conversation_id   String
+  conversation      genie_conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  
+  // Message content
+  role              String             // 'user' | 'assistant' | 'system'
+  content           String
+  metadata          Json               @default("{}")
+  
+  // AI analysis
+  intent_detected   String?
+  sentiment_score   Float?
+  
+  // Timestamps
+  created_at        DateTime           @default(now())
+  
+  @@index([conversation_id])
+  @@index([created_at])
+  @@map("genie_message")
+}
+
+model genie_qualification {
+  id                    String             @id @default(uuid())
+  conversation_id       String
+  conversation          genie_conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  organization_id       String
+  organization          organization       @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  
+  // Lead association
+  lead_id               String?
+  lead                  lead?              @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  
+  // Qualification results
+  qualification_score   Int                @default(0)
+  lead_tier             LeadTier           @default(undetermined)
+  recommended_action    RecommendedAction  @default(undecided)
+  
+  // Qualification data
+  company_size          String?
+  industry              String?
+  use_case              String?
+  budget_range          String?
+  timeline              String?
+  decision_maker        Boolean?           @default(false)
+  pain_points           String[]           @default([])
+  objections_raised     String[]           @default([])
+  
+  // Signals and metadata
+  signals_detected      Json               @default("{}")
+  qualification_data    Json               @default("{}")
+  
+  // Timestamps
+  qualified_at          DateTime?
+  created_at            DateTime           @default(now())
+  updated_at            DateTime           @updatedAt
+  
+  @@index([conversation_id])
+  @@index([organization_id])
+  @@index([lead_tier])
+  @@map("genie_qualification")
+}
+
+model genie_demo_request {
+  id                     String             @id @default(uuid())
+  conversation_id        String
+  conversation           genie_conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  organization_id        String
+  organization           organization       @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  
+  // Lead association
+  lead_id                String?
+  lead                   lead?              @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  
+  // Contact information
+  contact_email          String
+  contact_name           String
+  contact_phone          String?
+  company_name           String
+  company_size           String?
+  industry               String?
+  
+  // Demo preferences
+  preferred_date         DateTime?
+  preferred_time_slot    String?
+  timezone               String?
+  use_case_description   String?
+  additional_notes       String?
+  
+  // Booking status
+  status                 String             @default("pending") // 'pending' | 'scheduled' | 'completed' | 'cancelled'
+  scheduled_at           DateTime?
+  meeting_link           String?
+  
+  // Timestamps
+  created_at             DateTime           @default(now())
+  updated_at             DateTime           @updatedAt
+  
+  @@index([organization_id])
+  @@index([status])
+  @@index([contact_email])
+  @@map("genie_demo_request")
+}
+
+// AutoGenX Phase 1: Event Spine
+model automation_event {
+  id             String    @id @default(uuid())
+  workspace_id   String?   // nullable: discovered leads don't have workspace yet
+  organization   organization? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  lead_id        String?
+  lead           lead?     @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  
+  event_type     String    // 'lead_created' | 'lead_status_changed' | etc.
+  payload        Json      // Event-specific data
+  
+  status         String    @default("pending") // 'pending' | 'processed' | 'failed'
+  attempts       Int       @default(0)
+  last_error     String?
+  
+  created_at     DateTime  @default(now())
+  processed_at   DateTime?
+  
+  @@index([workspace_id])
+  @@index([lead_id])
+  @@index([status])
+  @@index([event_type])
+  @@index([created_at])
+  @@map("automation_events")
+}
+
+// AutoGenX Phase 2: Workflow rules and execution
+model automation_workflow {
+  id                  String              @id @default(uuid())
+  workspace_id        String
+  organization        organization        @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  name                String
+  trigger_event_type  String              // e.g., 'lead_created', 'lead_status_changed'
+  is_enabled          Boolean             @default(true)
+  
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+  
+  // Relations
+  steps               automation_step[]
+  enrollments         automation_enrollment[]
+  
+  @@index([workspace_id])
+  @@index([trigger_event_type])
+  @@index([is_enabled])
+  @@map("automation_workflows")
+}
+
+model automation_step {
+  id            String              @id @default(uuid())
+  workflow_id   String
+  workflow      automation_workflow @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  
+  step_order    Int                 // Execution order (1, 2, 3...)
+  action_type   String              // 'update_lead_status' | 'add_lead_tag' | 'create_task' | 'notify_user' | 'wait_hours'
+  action_config Json                // Action-specific configuration
+  
+  created_at    DateTime            @default(now())
+  
+  // Relations
+  runs          automation_run[]
+  
+  @@index([workflow_id])
+  @@index([step_order])
+  @@map("automation_steps")
+}
+
+model automation_enrollment {
+  id            String                @id @default(uuid())
+  workflow_id   String
+  workflow      automation_workflow   @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  
+  workspace_id  String
+  organization  organization          @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  lead_id       String?
+  lead          lead?                 @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  
+  event_id      String                // For idempotency: same event shouldn't create duplicate enrollments
+  
+  status        String                @default("active") // 'active' | 'completed' | 'failed' | 'paused'
+  enrolled_at   DateTime              @default(now())
+  completed_at  DateTime?
+  last_error    String?
+  
+  // Phase 2.5: Execution context and scheduling
+  context_json       Json?          // Arbitrary state (condition results, variables, etc.)
+  current_step_order Int?           // Which step we're currently on (for resume)
+  next_run_at        DateTime?      // When to resume after wait_hours
+  
+  // Phase 2.5: Locking for concurrent execution prevention
+  locked_at          DateTime?      // When lock was acquired
+  lock_owner         String?        // Worker/process ID holding the lock
+  
+  // Relations
+  runs                automation_run[]
+  automation_messages automation_message[]  // Phase 4.5: Messages sent by this enrollment
+  
+  @@unique([event_id, workflow_id]) // Idempotency: one enrollment per event+workflow
+  @@index([workflow_id])
+  @@index([workspace_id])
+  @@index([lead_id])
+  @@index([status])
+  @@index([next_run_at])  // For efficient polling of due enrollments
+  @@map("automation_enrollments")
+}
+
+model automation_run {
+  id             String                 @id @default(uuid())
+  enrollment_id  String
+  enrollment     automation_enrollment  @relation(fields: [enrollment_id], references: [id], onDelete: Cascade)
+  
+  step_id        String
+  step           automation_step        @relation(fields: [step_id], references: [id], onDelete: Cascade)
+  
+  status         String                 @default("started") // 'started' | 'success' | 'failed' | 'skipped'
+  started_at     DateTime               @default(now())
+  finished_at    DateTime?
+  error          String?
+  
+  @@index([enrollment_id])
+  @@index([step_id])
+  @@index([status])
+  @@map("automation_runs")
+}
+
+// ===========================
+// AutoGenX Phase 3: AI-Powered Workflow Generation
+// ===========================
+
+model autogenx_prompt_log {
+  id                    String    @id
+  workspace_id          String
+  user_id               String?
+  prompt_text           String
+  generated_json        Json?
+  validation_errors     Json?
+  success               Boolean   @default(false)
+  published_workflow_id String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  
+  @@index([workspace_id])
+  @@index([user_id])
+  @@index([created_at])
+  @@index([workspace_id, created_at])
+  @@index([published_workflow_id])
+  @@map("autogenx_prompt_logs")
+}
+
+// ===========================
+// AutoGenX Phase 4.5: Messaging, Compliance & Inbound
+// ===========================
+
+model automation_message {
+  id             String                 @id @default(uuid())
+  workspace_id   String
+  workspace      organization           @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  enrollment_id  String?
+  enrollment     automation_enrollment? @relation(fields: [enrollment_id], references: [id], onDelete: SetNull)
+  
+  lead_id        String
+  lead           lead                   @relation(fields: [lead_id], references: [id], onDelete: Cascade)
+  
+  channel        String                 // 'sms' or 'email'
+  direction      String                 @default("outbound") // 'outbound' or 'inbound'
+  
+  to_phone       String?
+  to_email       String?
+  from_phone     String?
+  from_email     String?
+  
+  subject        String?                // For emails
+  body           String
+  
+  status         String                 @default("pending") // pending, queued, sent, delivered, received, failed, bounced, complained
+  external_id    String?                // Twilio SID or email provider ID (unique per provider)
+  error_message  String?
+  
+  sent_at        DateTime?
+  delivered_at   DateTime?
+  received_at    DateTime?              // For inbound messages
+  metadata_json  Json?                  // Provider-specific metadata
+  
+  created_at     DateTime               @default(now())
+  updated_at     DateTime               @updatedAt
+  
+  @@index([workspace_id])
+  @@index([lead_id])
+  @@index([enrollment_id])
+  @@index([status])
+  @@index([external_id])
+  @@index([channel, direction])
+  @@index([created_at])
+  @@map("automation_message")
+}
+
+model messaging_settings {
+  id                     String   @id @default(uuid())
+  workspace_id           String   @unique
+  workspace              organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  sms_enabled            Boolean  @default(false)
+  email_enabled          Boolean  @default(false)
+  
+  sms_daily_limit        Int      @default(100)
+  email_daily_limit      Int      @default(500)
+  
+  quiet_hours_enabled    Boolean  @default(true)
+  quiet_hours_start      Int      @default(21)  // 9 PM (24-hour format)
+  quiet_hours_end        Int      @default(8)   // 8 AM
+  quiet_hours_timezone   String   @default("America/New_York")
+  
+  respect_opt_outs       Boolean  @default(true)
+  
+  twilio_account_sid     String?
+  twilio_auth_token      String?
+  twilio_from_phone      String?
+  
+  sendgrid_api_key       String?
+  sendgrid_from_email    String?
+  sendgrid_from_name     String?
+  
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+  
+  @@index([workspace_id])
+  @@map("messaging_settings")
+}
+
+model messaging_daily_usage {
+  id           String   @id @default(uuid())
+  workspace_id String
+  workspace    organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  date         DateTime @db.Date
+  channel      String   // 'sms' or 'email'
+  count        Int      @default(0)
+  
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  @@unique([workspace_id, date, channel])
+  @@index([workspace_id, date])
+  @@map("messaging_daily_usage")
+}
+
+// ============================================
+// CalGenX Phase 5: Appointments & Scheduling
+// ============================================
+
+model appointment_type {
+  id              String   @id @default(uuid())
+  workspace_id    String
+  workspace       organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  name            String   // e.g., "Consultation", "Demo", "Interview"
+  duration_minutes Int     // e.g., 30, 60
+  buffer_minutes  Int      @default(0) // Buffer time after appointment
+  is_enabled      Boolean  @default(true)
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  // Relations
+  appointments    appointment[]
+  booking_links   booking_link[]
+  
+  @@index([workspace_id])
+  @@index([is_enabled])
+  @@map("appointment_types")
+}
+
+model availability_rule {
+  id             String   @id @default(uuid())
+  workspace_id   String
+  workspace      organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  timezone       String   // IANA timezone, e.g., "America/Los_Angeles"
+  days_of_week   Int[]    // Array of 0-6 (Sunday=0, Monday=1, ... Saturday=6)
+  start_time     String   // "HH:MM" format, e.g., "09:00"
+  end_time       String   // "HH:MM" format, e.g., "17:00"
+  
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  
+  @@index([workspace_id])
+  @@map("availability_rules")
+}
+
+model appointment {
+  id                  String   @id @default(uuid())
+  workspace_id        String
+  workspace           organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  lead_id             String?
+  lead                lead?    @relation(fields: [lead_id], references: [id], onDelete: SetNull)
+  
+  appointment_type_id String
+  appointment_type    appointment_type @relation(fields: [appointment_type_id], references: [id], onDelete: Restrict)
+  
+  booked_by           String   // "lead" | "internal"
+  
+  start_at            DateTime // UTC timestamp of appointment start
+  end_at              DateTime // UTC timestamp of appointment end
+  timezone            String   // Timezone of the appointment (for display)
+  
+  status              String   @default("scheduled") // "scheduled" | "canceled" | "completed" | "no_show"
+  cancel_reason       String?
+  
+  location_type       String   @default("phone") // "phone" | "zoom" | "in_person" | "custom"
+  location_value      String?  // Phone number, Zoom link, or address
+  
+  notes               String?  @db.Text
+  
+  // Phase 5.5A: Google Calendar Integration
+  google_event_id     String?  // Google Calendar event ID
+  google_calendar_id  String?  // Google Calendar ID (usually "primary")
+  
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  @@index([workspace_id])
+  @@index([lead_id])
+  @@index([appointment_type_id])
+  @@index([start_at])
+  @@index([status])
+  @@index([workspace_id, start_at, end_at]) // For overlap checks
+  @@map("appointments")
+}
+
+model booking_link {
+  id                  String   @id @default(uuid())
+  workspace_id        String
+  workspace           organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  slug                String   @unique // Human-friendly URL slug
+  
+  appointment_type_id String?
+  appointment_type    appointment_type? @relation(fields: [appointment_type_id], references: [id], onDelete: SetNull)
+  
+  is_enabled          Boolean  @default(true)
+  
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  
+  @@index([workspace_id])
+  @@index([slug])
+  @@index([is_enabled])
+  @@map("booking_links")
+}
+
+model calgenx_ical_feed {
+  id                String    @id @default(uuid())
+  workspace_id      String
+  workspace         organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  token             String    @unique // Cryptographically random, unguessable token
+  is_enabled        Boolean   @default(true)
+  name              String?
+  
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  last_rotated_at   DateTime?
+  
+  @@index([workspace_id])
+  @@index([token], map: "idx_calgenx_ical_feed_token_enabled") // For fast public lookups
+  @@unique([workspace_id], map: "idx_calgenx_ical_feed_workspace_unique") // One feed per workspace
+  @@map("calgenx_ical_feed")
+}
+
+// CalGenX Phase 5.5A: Google Calendar Integration
+// =================================================
+
+model google_calendar_connection {
+  id                  String    @id @default(uuid())
+  workspace_id        String    @unique // One connection per workspace
+  workspace           organization @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  
+  created_by_user_id  String?   // User who initiated the connection
+  google_user_email   String?   // Google account email
+  
+  access_token        String    @db.Text // Encrypted server-side
+  refresh_token       String    @db.Text // Encrypted server-side
+  token_expires_at    DateTime  // When access token expires
+  
+  calendar_id         String    @default("primary") // Google Calendar ID
+  is_enabled          Boolean   @default(true)
+  
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+  last_synced_at      DateTime? // Last successful sync
+  
+  @@index([workspace_id])
+  @@index([is_enabled])
+  @@map("google_calendar_connections")
+}

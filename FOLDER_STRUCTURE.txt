@@ -1,0 +1,54 @@
+LeadGenX Deployment Package Structure
+======================================
+
+What you have:
+
+leadgenx-deployment-package/
+├── README.txt              ← READ THIS FIRST!
+├── FOLDER_STRUCTURE.txt    ← You are here
+├── backend/                ← Railway will use this folder
+│   ├── src/
+│   │   ├── auth/
+│   │   ├── leads/
+│   │   ├── campaigns/
+│   │   ├── autogenx/       (Workflow automation)
+│   │   ├── genie/          (AI assistant)
+│   │   ├── website-intel/  (Website scraping)
+│   │   └── main.ts         (Entry point)
+│   ├── prisma/
+│   │   ├── schema.prisma
+│   │   └── migrations/     (29 database migrations)
+│   ├── dist/               (Built files - already compiled)
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── nest-cli.json
+│
+└── frontend/               ← Vercel will use this folder
+    ├── app/
+    │   ├── page.tsx        (Homepage)
+    │   ├── login/          (Login page)
+    │   ├── register/       (Sign up page)
+    │   ├── crm/            (CRM dashboard)
+    │   ├── leads/          (Leads management)
+    │   ├── campaigns/      (Campaign management)
+    │   ├── settings/       (Settings page)
+    │   └── onboarding/     (New user onboarding)
+    ├── components/
+    │   ├── ui/             (UI components)
+    │   ├── genie-chat-widget.tsx
+    │   └── dashboard-layout.tsx
+    ├── lib/
+    │   ├── api-client.ts   (API wrapper)
+    │   └── auth-context.tsx
+    ├── package.json
+    ├── next.config.ts
+    └── tailwind.config.ts
+
+
+What to do:
+
+1. Upload THIS ENTIRE FOLDER to GitHub as one repository
+2. Tell Railway to use the "backend" folder
+3. Tell Vercel to use the "frontend" folder
+
+That's it!
