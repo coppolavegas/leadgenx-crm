@@ -13,23 +13,25 @@ export default function AdminDashboard() {
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    async function checkAccess() {
-      try {
-        const response = await apiClient('/admin/ping');
-        if (response.ok) {
-          setAuthorized(true);
-        } else {
-          router.push('/leads');
-        }
-      } catch (error) {
-        console.error('Access denied:', error);
+  async function checkAccess() {
+    try {
+      const response = await apiClient.get('/admin/ping');
+
+      if (response.status === 200) {
+        setAuthorized(true);
+      } else {
         router.push('/leads');
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      console.error('Access denied:', error);
+      router.push('/leads');
+    } finally {
+      setLoading(false);
     }
-    checkAccess();
-  }, [router]);
+  }
+
+  checkAccess();
+}, [router]);
 
   if (loading) {
     return (
