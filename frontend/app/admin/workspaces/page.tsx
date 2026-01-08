@@ -1,8 +1,7 @@
-'use client';
+'use client";
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Building2, Users, Calendar } from 'lucide-react';
@@ -36,7 +35,9 @@ export default function WorkspacesPage() {
   useEffect(() => {
     async function fetchWorkspaces() {
       try {
-        const response = await apiClient('/admin/workspaces');
+       const response = await fetch(`/admin/workspaces/${workspaceId}`, {
+  credentials: "include",
+})
         if (response.ok) {
           const data = await response.json();
           setWorkspaces(data);
