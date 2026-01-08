@@ -1,8 +1,7 @@
-'use client';
+"use client";
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Building2, Users, Settings } from 'lucide-react';
@@ -12,25 +11,30 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
 
-  useEffect(() => {
-  async function checkAccess() {
+ useEffect(() => {
+  const checkAccess = async () => {
     try {
-  const response = await fetch('/admin/ping', {
-    credentials: 'include',
-  });
+      const response = await fetch("/admin/ping", {
+        credentials: "include",
+      });
 
-  if (response.ok) {
-    setAuthorized(true);
-  } else {
-    router.push('/leads');
-  }
-}
-
+      if (response.ok) {
+        setAuthorized(true);
+      } else {
+        router.push("/leads");
+      }
+    } catch (error) {
+      console.error("Access denied:", error);
+      router.push("/leads");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   checkAccess();
 }, [router]);
+
+
 
   if (loading) {
     return (
