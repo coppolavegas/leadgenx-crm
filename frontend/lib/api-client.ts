@@ -34,7 +34,9 @@ class APIClient {
   clearSessionToken() {
     this.sessionToken = null;
   }
-
+public get<T>(endpoint: string): Promise<T> {
+  return this.request<T>(endpoint, { method: 'GET' });
+}
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}

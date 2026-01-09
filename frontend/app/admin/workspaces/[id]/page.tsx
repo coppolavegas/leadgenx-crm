@@ -102,24 +102,22 @@ export default function WorkspaceDetailPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+ useEffect(() => {
+  if (!workspaceId) return;
+
   async function fetchWorkspace() {
     try {
-      const response = await apiClient.get(`/admin/workspaces/${workspaceId}`);
+      const data = await apiClient.request<Workspace>(
+        `/admin/workspaces/${workspaceId}`
+      );
 
-      if (response.data) {
-        const data = response.data;
-        setWorkspace(data);
+      setWorkspace(data);
 
-        const initialStates: Partial<Workspace> = {};
-        features.forEach((feature) => {
-          initialStates[feature.key] = data[feature.key];
-        });
-
-        setFeatureStates(initialStates);
-      } else {
-        router.push('/admin/workspaces');
-      }
+      const initialStates: Partial<Workspace> = {};
+      features.forEach((feature) => {
+        initialStates[feature.key] = (data as any)[feature.key];
+      });
+      setFeatureStates(initialStates);
     } catch (error) {
       console.error(error);
       router.push('/admin/workspaces');
