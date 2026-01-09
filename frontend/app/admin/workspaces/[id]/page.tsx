@@ -103,29 +103,33 @@ export default function WorkspaceDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchWorkspace() {
-      try {
-        const response = await apiClient.get(`/admin/workspaces/${workspaceId}`);
-const data = response.data;
-setWorkspace(data);
-          // Initialize feature states
-          const initialStates: Partial<Workspace> = {};
-          features.forEach((feature) => {
-            initialStates[feature.key] = data[feature.key];
-          });
-          setFeatureStates(initialStates);
-        } else {
-          router.push('/admin/workspaces');
-        }
-      } catch (error) {
-        console.error('Failed to fetch workspace:', error);
+  async function fetchWorkspace() {
+    try {
+      const response = await apiClient.get(`/admin/workspaces/${workspaceId}`);
+
+      if (response.data) {
+        const data = response.data;
+        setWorkspace(data);
+
+        const initialStates: Partial<Workspace> = {};
+        features.forEach((feature) => {
+          initialStates[feature.key] = data[feature.key];
+        });
+
+        setFeatureStates(initialStates);
+      } else {
         router.push('/admin/workspaces');
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      console.error(error);
+      router.push('/admin/workspaces');
+    } finally {
+      setLoading(false);
     }
-    fetchWorkspace();
-  }, [workspaceId, router]);
+  }
+
+  fetchWorkspace();
+}, [workspaceId, router]);
 
   const handleFeatureToggle = (key: keyof Workspace, value: boolean) => {
     setFeatureStates((prev) => ({
