@@ -107,9 +107,9 @@ export default function WorkspaceDetailPage() {
 
   async function fetchWorkspace() {
     try {
-      const data = await apiClient.request<Workspace>(
-        `/admin/workspaces/${workspaceId}`
-      );
+   const data = await apiClient.get<Workspace>(
+  `/admin/workspaces/${workspaceId}`
+);
 
       setWorkspace(data);
 
