@@ -105,10 +105,9 @@ export default function WorkspaceDetailPage() {
   useEffect(() => {
     async function fetchWorkspace() {
       try {
-        const response = await apiClient(`/admin/workspaces/${workspaceId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setWorkspace(data);
+        const response = await apiClient.get(`/admin/workspaces/${workspaceId}`);
+const data = response.data;
+setWorkspace(data);
           // Initialize feature states
           const initialStates: Partial<Workspace> = {};
           features.forEach((feature) => {
